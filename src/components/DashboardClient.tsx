@@ -122,6 +122,21 @@ export default function DashboardClient() {
     }
   }, []);
 
+  const handleEdit = useCallback(async (taskId: string, data: any) => {
+    const res = await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+    if (!res.ok) return { error: result.error };
+
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? result : t))
+    );
+    toast.success("Task updated!", { icon: "✓" });
+  }, []);
+
   if (status === "loading") {
     return (
       <div className="flex h-screen items-center justify-center bg-[#FAFAFA]">
@@ -145,14 +160,12 @@ export default function DashboardClient() {
         ? myTasks
         : assignedTasks;
 
-    // Filter by selected calendar date
     if (selectedDate) {
       viewTasks = viewTasks.filter(
         (t) => t.dueDate && isSameDay(new Date(t.dueDate), selectedDate)
       );
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       viewTasks = viewTasks.filter(
         (t) =>
@@ -347,6 +360,7 @@ export default function DashboardClient() {
                     currentUserId={userId}
                     onToggle={handleToggle}
                     onDelete={handleDelete}
+                    onEdit={handleEdit}
                   />
                 ))}
               </AnimatePresence>
@@ -368,6 +382,7 @@ export default function DashboardClient() {
                       currentUserId={userId}
                       onToggle={handleToggle}
                       onDelete={handleDelete}
+                      onEdit={handleEdit}
                     />
                   ))}
                 </AnimatePresence>
