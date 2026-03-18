@@ -23,7 +23,9 @@ import {
   getDay,
   isToday,
   isSameMonth,
+  isSameDay,
 } from "date-fns";
+import { Task } from "@/types/task";
 
 interface SidebarProps {
   session: Session;
@@ -31,6 +33,9 @@ interface SidebarProps {
   onViewChange: (view: string) => void;
   taskCounts: { my: number; assigned: number };
   isMobile?: boolean;
+  tasks: Task[];
+  selectedDate: Date | null;
+  onDateSelect: (date: Date | null) => void;
 }
 
 export function Sidebar({
@@ -39,6 +44,9 @@ export function Sidebar({
   onViewChange,
   taskCounts,
   isMobile = false,
+  tasks,
+  selectedDate,
+  onDateSelect,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -51,6 +59,13 @@ export function Sidebar({
   });
 
   const startDay = getDay(startOfMonth(calendarDate));
+
+  // Get dates that have pending tasks
+  const datesWithTasks = new Set(
+    tasks
+      .filter((t) => t.status !== "COMPLETED" && t.dueDate)
+      .map((t) => format(new Date(t.dueDate!), "yyyy-MM-dd"))
+  );
 
   const navItems = [
     {
@@ -67,6 +82,15 @@ export function Sidebar({
       count: taskCounts.assigned,
     },
   ];
+
+  const handleDateClick = (day: Date) => {
+    // If same date clicked again — deselect
+    if (selectedDate && isSameDay(day, selectedDate)) {
+      onDateSelect(null);
+    } else {
+      onDateSelect(day);
+    }
+  };
 
   return (
     <aside
@@ -95,13 +119,19 @@ export function Sidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto py-3 space-y-1 px-2">
+        {/* Navigation */}
         {navItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => onViewChange(item.id)}
+            onClick={() => {
+              onViewChange(item.id);
+              onDateSelect(null); // clear date filter when switching views
+            }}
             className={cn(
               "sidebar-item w-full",
-              activeView === item.id && "sidebar-item-active"
+              activeView === item.id &&
+                !selectedDate &&
+                "sidebar-item-active"
             )}
           >
             <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -118,9 +148,10 @@ export function Sidebar({
           </button>
         ))}
 
-        {/* Mini Calendar */}
+        {/* Calendar */}
         {!isCollapsed && (
           <div className="mt-4 px-1">
+            {/* Calendar header */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-gray-700">
                 {format(calendarDate, "MMMM yyyy")}
@@ -141,6 +172,7 @@ export function Sidebar({
               </div>
             </div>
 
+            {/* Day headers */}
             <div className="grid grid-cols-7 mb-1">
               {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
                 <span
@@ -152,25 +184,59 @@ export function Sidebar({
               ))}
             </div>
 
+            {/* Days grid */}
             <div className="grid grid-cols-7 gap-y-1">
+              {/* Empty offset cells */}
               {Array.from({ length: (startDay + 6) % 7 }).map((_, i) => (
                 <span key={`empty-${i}`} />
               ))}
-              {days.map((day) => (
-                <button
-                  key={day.toString()}
-                  className={cn(
-                    "text-[11px] w-6 h-6 mx-auto flex items-center justify-center rounded-full transition-colors",
-                    isToday(day)
-                      ? "bg-gray-900 text-white font-medium"
-                      : "text-gray-500 hover:bg-gray-100",
-                    !isSameMonth(day, calendarDate) && "opacity-30"
-                  )}
-                >
-                  {format(day, "d")}
-                </button>
-              ))}
+
+              {days.map((day) => {
+                const dateKey = format(day, "yyyy-MM-dd");
+                const hasTasks = datesWithTasks.has(dateKey);
+                const isSelected = selectedDate && isSameDay(day, selectedDate);
+
+                return (
+                  <button
+                    key={day.toString()}
+                    onClick={() => handleDateClick(day)}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center w-7 h-7 mx-auto rounded-full transition-colors text-[11px]",
+                      isSelected
+                        ? "bg-gray-900 text-white"
+                        : isToday(day)
+                        ? "bg-gray-100 text-gray-900 font-medium"
+                        : "text-gray-500 hover:bg-gray-100",
+                      !isSameMonth(day, calendarDate) && "opacity-30"
+                    )}
+                  >
+                    {format(day, "d")}
+                    {/* Dot indicator for pending tasks */}
+                    {hasTasks && !isSelected && (
+                      <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-purple-400" />
+                    )}
+                    {hasTasks && isSelected && (
+                      <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Selected date label */}
+            {selectedDate && (
+              <div className="mt-3 flex items-center justify-between px-1">
+                <span className="text-xs text-purple-600 font-medium">
+                  {format(selectedDate, "d MMM yyyy")}
+                </span>
+                <button
+                  onClick={() => onDateSelect(null)}
+                  className="text-[10px] text-gray-400 hover:text-gray-600"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -200,13 +266,11 @@ export function Sidebar({
                 </p>
               </div>
               <button
-  onClick={() => signOut({ 
-    callbackUrl: "/login"
-  })}
-  className="p-1 text-gray-300 hover:text-gray-600 transition-colors"
->
-  <LogOut className="w-3.5 h-3.5" />
-</button>
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="p-1 text-gray-300 hover:text-gray-600 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </>
           )}
         </div>
