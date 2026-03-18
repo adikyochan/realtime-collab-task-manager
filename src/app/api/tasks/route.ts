@@ -1,10 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { successResponse, errorResponse } from "@/lib/api-helpers";
 import { getAuthenticatedUser } from "@/lib/session";
+import { triggerPusher } from "@/lib/pusher-server";
 
-// ─── GET /api/tasks ───────────────────────────────────────────────
-// Fetches all tasks where the current user is either the owner
-// or the assignee. Returns them newest first.
 export async function GET() {
   const { user, error } = await getAuthenticatedUser();
   if (error) return error;
@@ -30,9 +28,6 @@ export async function GET() {
   return successResponse(tasks);
 }
 
-// ─── POST /api/tasks ──────────────────────────────────────────────
-// Creates a new task. If assigneeEmail is provided, looks up that
-// user and links them. Returns 404 if the email doesn't exist.
 export async function POST(req: Request) {
   const { user, error } = await getAuthenticatedUser();
   if (error) return error;
@@ -40,12 +35,10 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { title, description, priority, dueDate, assigneeEmail } = body;
 
-  // Validate required fields
   if (!title || title.trim() === "") {
     return errorResponse("Title is required", 400);
   }
 
-  // If an assignee email was provided, look them up
   let assigneeId: string | undefined;
 
   if (assigneeEmail && assigneeEmail.trim() !== "") {
@@ -53,7 +46,6 @@ export async function POST(req: Request) {
       where: { email: assigneeEmail.trim().toLowerCase() },
     });
 
-    // This is the specific error message the brief asks for
     if (!assignee) {
       return errorResponse("User with this email not found", 404);
     }
@@ -79,6 +71,14 @@ export async function POST(req: Request) {
       },
     },
   });
+
+  // Notify the owner's channel that a new task was created
+  await triggerPusher(`user-${user!.id}`, "task-created", task);
+
+  // If assigned to someone else, notify their channel too
+  if (assigneeId && assigneeId !== user!.id) {
+    await triggerPusher(`user-${assigneeId}`, "task-assigned", task);
+  }
 
   return successResponse(task, 201);
 }
