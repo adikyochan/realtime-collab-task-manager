@@ -10,7 +10,7 @@ import { TaskCard } from "./TaskCard";
 import { TaskForm } from "./TaskForm";
 import { TaskSkeleton } from "./TaskSkeleton";
 import { Sidebar } from "./Sidebar";
-import { Search, Menu, X } from "lucide-react";
+import { Search, Menu, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { isSameDay, format } from "date-fns";
 
 export default function DashboardClient() {
@@ -21,6 +21,8 @@ export default function DashboardClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [sortBy, setSortBy] = useState<"title" | "priority" | "dueDate">("dueDate");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const userId = (session?.user as any)?.id as string;
 
@@ -130,7 +132,6 @@ export default function DashboardClient() {
     });
     const result = await res.json();
     if (!res.ok) return { error: result.error };
-
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? result : t))
     );
@@ -151,6 +152,8 @@ export default function DashboardClient() {
   const assignedTasks = tasks.filter(
     (t) => t.assigneeId === userId && t.ownerId !== userId
   );
+
+  const priorityOrder = { LOW: 1, MEDIUM: 2, HIGH: 3 };
 
   const getViewTasks = () => {
     let viewTasks: Task[] =
@@ -173,6 +176,23 @@ export default function DashboardClient() {
           t.description?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
+
+    viewTasks = [...viewTasks].sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === "title") {
+        comparison = a.title.localeCompare(b.title);
+      } else if (sortBy === "priority") {
+        comparison =
+          priorityOrder[a.priority] - priorityOrder[b.priority];
+      } else if (sortBy === "dueDate") {
+        const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        comparison = aDate - bDate;
+      }
+
+      return sortDir === "asc" ? comparison : -comparison;
+    });
 
     return viewTasks;
   };
@@ -285,21 +305,48 @@ export default function DashboardClient() {
             </span>
           </div>
 
-          {/* Search */}
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 w-full md:w-64">
-            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="text-sm outline-none bg-transparent flex-1 placeholder:text-gray-300"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")}>
-                <X className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500" />
+          <div className="flex items-center gap-2">
+            {/* Sort control */}
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-2">
+              <ArrowUpDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="text-xs text-gray-500 outline-none bg-transparent cursor-pointer"
+              >
+                <option value="dueDate">Date</option>
+                <option value="title">Name</option>
+                <option value="priority">Priority</option>
+              </select>
+              <button
+                onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                className="ml-1 text-gray-400 hover:text-gray-700 transition-colors"
+                title={sortDir === "asc" ? "Ascending" : "Descending"}
+              >
+                {sortDir === "asc" ? (
+                  <ArrowUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ArrowDown className="w-3.5 h-3.5" />
+                )}
               </button>
-            )}
+            </div>
+
+            {/* Search */}
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 w-full md:w-64">
+              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="text-sm outline-none bg-transparent flex-1 placeholder:text-gray-300"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")}>
+                  <X className="w-3.5 h-3.5 text-gray-300 hover:text-gray-500" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
