@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Task } from "@/types/task";
-import { X, Flag, Calendar, User } from "lucide-react";
+import { X, Flag, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { UserSearchInput } from "./UserSearchInput";
 
 interface EditTaskModalProps {
   task: Task;
@@ -158,30 +159,15 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
               </div>
             </div>
 
-            {/* Assignee */}
+            {/* Assignee with search */}
             <div className="space-y-1">
               <label className="text-xs text-gray-500 font-medium">
                 Assigned to
               </label>
-              <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
-                <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                <input
-                  type="email"
-                  placeholder="Assign to email..."
-                  value={assigneeEmail}
-                  onChange={(e) => setAssigneeEmail(e.target.value)}
-                  className="text-xs text-gray-600 outline-none bg-transparent w-full placeholder:text-gray-300"
-                />
-                {assigneeEmail && (
-                  <button
-                    type="button"
-                    onClick={() => setAssigneeEmail("")}
-                    className="text-gray-300 hover:text-gray-500"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
+              <UserSearchInput
+                value={assigneeEmail}
+                onChange={setAssigneeEmail}
+              />
             </div>
 
             {/* Error */}
