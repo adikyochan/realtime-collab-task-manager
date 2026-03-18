@@ -18,7 +18,10 @@ export default function LoginPage() {
         </div>
 
         <Button
-          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          onClick={() => signIn("google", { 
+  callbackUrl: "/dashboard",
+  prompt: "login"
+})}
           className="w-full bg-white text-slate-900 hover:bg-slate-100 font-semibold flex items-center gap-3 py-5 rounded-xl"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

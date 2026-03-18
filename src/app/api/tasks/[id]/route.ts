@@ -3,6 +3,8 @@ import { successResponse, errorResponse } from "@/lib/api-helpers";
 import { getAuthenticatedUser } from "@/lib/session";
 import { triggerPusher } from "@/lib/pusher-server";
 
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -9,16 +9,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
-  callbacks: {
-    session: ({ session, user }) => ({
-      ...session,
-      user: {
-        ...session.user,
-        id: user.id,
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          prompt: "login",
+          access_type: "offline",
+        },
       },
     }),
+  ],
+  session: {
+    strategy: "database",
+  },
+  callbacks: {
+    session: async ({ session, user }) => {
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: user.id,
+        },
+      };
+    },
   },
   pages: {
     signIn: "/login",

@@ -3,6 +3,8 @@ import { successResponse, errorResponse } from "@/lib/api-helpers";
 import { getAuthenticatedUser } from "@/lib/session";
 import { triggerPusher } from "@/lib/pusher-server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const { user, error } = await getAuthenticatedUser();
   if (error) return error;
