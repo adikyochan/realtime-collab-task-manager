@@ -23,29 +23,47 @@ export async function PATCH(
     return errorResponse("Task not found", 404);
   }
 
-  if (existingTask.ownerId !== user!.id) {
-    return errorResponse("You can only edit your own tasks", 403);
+  const isOwner = existingTask.ownerId === user!.id;
+  const isAssignee = existingTask.assigneeId === user!.id;
+
+  // Must be owner or assignee to do anything
+  if (!isOwner && !isAssignee) {
+    return errorResponse("You don't have access to this task", 403);
+  }
+
+  // Assignee can ONLY update status — nothing else
+  if (!isOwner && isAssignee) {
+    if (Object.keys(body).some((key) => key !== "status")) {
+      return errorResponse("Assignees can only update task status", 403);
+    }
   }
 
   const updateData: any = {};
 
-  if (body.title !== undefined) updateData.title = body.title.trim();
-  if (body.description !== undefined) updateData.description = body.description?.trim() || null;
+  // Status — both owner and assignee can change this
   if (body.status !== undefined) updateData.status = body.status;
-  if (body.priority !== undefined) updateData.priority = body.priority;
-  if (body.dueDate !== undefined) updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
 
-  if (body.assigneeEmail !== undefined) {
-    if (!body.assigneeEmail || body.assigneeEmail.trim() === "") {
-      updateData.assigneeId = null;
-    } else {
-      const assignee = await prisma.user.findUnique({
-        where: { email: body.assigneeEmail.trim().toLowerCase() },
-      });
-      if (!assignee) {
-        return errorResponse("User with this email not found", 404);
+  // Everything below — owner only
+  if (isOwner) {
+    if (body.title !== undefined) updateData.title = body.title.trim();
+    if (body.description !== undefined)
+      updateData.description = body.description?.trim() || null;
+    if (body.priority !== undefined) updateData.priority = body.priority;
+    if (body.dueDate !== undefined)
+      updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+
+    if (body.assigneeEmail !== undefined) {
+      if (!body.assigneeEmail || body.assigneeEmail.trim() === "") {
+        updateData.assigneeId = null;
+      } else {
+        const assignee = await prisma.user.findUnique({
+          where: { email: body.assigneeEmail.trim().toLowerCase() },
+        });
+        if (!assignee) {
+          return errorResponse("User with this email not found", 404);
+        }
+        updateData.assigneeId = assignee.id;
       }
-      updateData.assigneeId = assignee.id;
     }
   }
 
@@ -62,12 +80,14 @@ export async function PATCH(
     },
   });
 
-  // Notify the owner
   await triggerPusher(`user-${user!.id}`, "task-updated", updatedTask);
 
-  // Notify the assignee if there is one and they're different from owner
   if (updatedTask.assigneeId && updatedTask.assigneeId !== user!.id) {
-    await triggerPusher(`user-${updatedTask.assigneeId}`, "task-updated", updatedTask);
+    await triggerPusher(
+      `user-${updatedTask.assigneeId}`,
+      "task-updated",
+      updatedTask
+    );
   }
 
   return successResponse(updatedTask);
@@ -94,16 +114,19 @@ export async function DELETE(
     return errorResponse("You can only delete your own tasks", 403);
   }
 
-  // Notify assignee before deleting so their UI can remove it
+  // Notify assignee before deleting
   if (existingTask.assigneeId && existingTask.assigneeId !== user!.id) {
-    await triggerPusher(`user-${existingTask.assigneeId}`, "task-deleted", { id });
+    await triggerPusher(
+      `user-${existingTask.assigneeId}`,
+      "task-deleted",
+      { id }
+    );
   }
 
   await prisma.task.delete({
     where: { id },
   });
 
-  // Notify owner
   await triggerPusher(`user-${user!.id}`, "task-deleted", { id });
 
   return successResponse({ message: "Task deleted successfully" });
