@@ -12,8 +12,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
-          prompt: "login",
-          access_type: "offline",
+          prompt: "select_account",
+          access_type: "online",
+          include_granted_scopes: false,
+          response_type: "code",
         },
       },
     }),
