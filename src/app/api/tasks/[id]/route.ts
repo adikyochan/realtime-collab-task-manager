@@ -82,13 +82,15 @@ export async function PATCH(
 
   await triggerPusher(`user-${user!.id}`, "task-updated", updatedTask);
 
-  if (updatedTask.assigneeId && updatedTask.assigneeId !== user!.id) {
-    await triggerPusher(
-      `user-${updatedTask.assigneeId}`,
-      "task-updated",
-      updatedTask
-    );
-  }
+// Always notify the owner (if they're not the one who made the change)
+if (updatedTask.ownerId !== user!.id) {
+  await triggerPusher(`user-${updatedTask.ownerId}`, "task-updated", updatedTask);
+}
+
+// Always notify the assignee (if they're not the one who made the change)
+if (updatedTask.assigneeId && updatedTask.assigneeId !== user!.id) {
+  await triggerPusher(`user-${updatedTask.assigneeId}`, "task-updated", updatedTask);
+}
 
   return successResponse(updatedTask);
 }
