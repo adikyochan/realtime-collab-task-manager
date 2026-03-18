@@ -102,7 +102,7 @@ export function Sidebar({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
         {!isCollapsed && (
-          <span className="text-sm font-semibold text-gray-900">TaskFlow</span>
+          <span className="text-sm font-semibold text-gray-900">RealTasks</span>
         )}
         {!isMobile && (
           <button
