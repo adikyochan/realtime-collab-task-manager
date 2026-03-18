@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { User, X, Search, Loader2 } from "lucide-react";
+import { User, X, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface UserResult {
@@ -22,10 +22,9 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<UserResult | null>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -39,7 +38,6 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounced search
   useEffect(() => {
     if (selected) return;
     if (!query || query.length < 2) {
@@ -48,7 +46,8 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
       return;
     }
 
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true);
       try {
@@ -65,7 +64,9 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
       }
     }, 300);
 
-    return () => clearTimeout(debounceRef.current);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [query, selected]);
 
   const handleSelect = (user: UserResult) => {
@@ -93,8 +94,7 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Input */}
-      <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2 focus-within:border-gray-300 transition-colors">
+      <div className="flex items-center gap-1.5 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-2 focus-within:border-gray-300 dark:focus-within:border-gray-600 transition-colors bg-transparent">
         {selected ? (
           <Avatar className="w-4 h-4 flex-shrink-0">
             <AvatarImage src={selected.image || ""} />
@@ -116,29 +116,28 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
           onFocus={() => {
             if (results.length > 0) setIsOpen(true);
           }}
-          className="text-xs text-gray-600 outline-none bg-transparent flex-1 placeholder:text-gray-300 min-w-0"
+          className="text-xs text-gray-600 dark:text-gray-300 outline-none bg-transparent flex-1 placeholder:text-gray-300 dark:placeholder:text-gray-600 min-w-0"
         />
 
         {query && (
           <button
             type="button"
             onClick={handleClear}
-            className="text-gray-300 hover:text-gray-500 flex-shrink-0"
+            className="text-gray-300 hover:text-gray-500 dark:hover:text-gray-400 flex-shrink-0"
           >
             <X className="w-3 h-3" />
           </button>
         )}
       </div>
 
-      {/* Dropdown results */}
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden">
           {results.map((user) => (
             <button
               key={user.id}
               type="button"
               onClick={() => handleSelect(user)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
             >
               <Avatar className="w-7 h-7 flex-shrink-0">
                 <AvatarImage src={user.image || ""} />
@@ -147,7 +146,7 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">
+                <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">
                   {user.name || "Unknown"}
                 </p>
                 <p className="text-[11px] text-gray-400 truncate">
@@ -157,8 +156,7 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
             </button>
           ))}
 
-          {/* Manual email hint */}
-          <div className="px-3 py-2 border-t border-gray-100">
+          <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-800">
             <p className="text-[10px] text-gray-400">
               Not listed? Type their email directly.
             </p>
@@ -166,11 +164,12 @@ export function UserSearchInput({ value, onChange }: UserSearchInputProps) {
         </div>
       )}
 
-      {/* No results state */}
       {isOpen && results.length === 0 && !isLoading && query.length >= 2 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden">
           <div className="px-3 py-3 text-center">
-            <p className="text-xs text-gray-500">No users found</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              No users found
+            </p>
             <p className="text-[10px] text-gray-400 mt-0.5">
               You can still type their email directly
             </p>
