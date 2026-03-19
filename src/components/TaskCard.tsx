@@ -119,6 +119,7 @@ export function TaskCard({
               </p>
             </div>
 
+            {/* Meta row */}
             <div className="flex items-center gap-3 mt-1">
               {task.dueDate && (
                 <span className="flex items-center gap-1 text-xs text-gray-400">
@@ -126,15 +127,39 @@ export function TaskCard({
                   {format(new Date(task.dueDate), "d MMM")}
                 </span>
               )}
+
+              {/* Linked assignee — someone else */}
               {task.assignee && task.assignee.id !== currentUserId && (
                 <span className="flex items-center gap-1 text-xs text-gray-400">
                   <User className="w-3 h-3" />
                   {task.assignee.name || task.assignee.email}
                 </span>
               )}
+
+              {/* Linked assignee — current user */}
               {task.assignee && task.assignee.id === currentUserId && (
                 <span className="text-xs text-purple-500 font-medium">
                   Assigned to you
+                </span>
+              )}
+
+              {/* Pending assignee — hasn't signed up yet */}
+              {!task.assignee && task.pendingAssigneeEmail && (
+                <span className="flex items-center gap-1 text-xs text-amber-500">
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {"Pending: " + task.pendingAssigneeEmail}
                 </span>
               )}
             </div>
@@ -198,6 +223,7 @@ export function TaskCard({
             )}
 
             <div className="flex items-center gap-4">
+              {/* Owner */}
               <div className="flex items-center gap-2">
                 <Avatar className="w-5 h-5">
                   <AvatarImage src={task.owner.image || ""} />
@@ -210,6 +236,7 @@ export function TaskCard({
                 </span>
               </div>
 
+              {/* Linked assignee */}
               {task.assignee && (
                 <>
                   <span className="text-xs text-gray-300">→</span>
@@ -229,7 +256,30 @@ export function TaskCard({
                 </>
               )}
 
-              {/* Edit button inside expanded view too */}
+              {/* Pending assignee in expanded view */}
+              {!task.assignee && task.pendingAssigneeEmail && (
+                <>
+                  <span className="text-xs text-gray-300">→</span>
+                  <span className="flex items-center gap-1 text-xs text-amber-500">
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {"Waiting for " + task.pendingAssigneeEmail}
+                  </span>
+                </>
+              )}
+
+              {/* Edit button inside expanded view */}
               {isOwner && (
                 <button
                   onClick={handleEditClick}

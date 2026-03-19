@@ -19,6 +19,7 @@ export interface Task {
   updatedAt: string;
   ownerId: string;
   assigneeId: string | null;
+  pendingAssigneeEmail: string | null;
   owner: TaskUser;
   assignee: TaskUser | null;
 }

@@ -26,12 +26,11 @@ export async function PATCH(
   const isOwner = existingTask.ownerId === user!.id;
   const isAssignee = existingTask.assigneeId === user!.id;
 
-  // Must be owner or assignee to do anything
   if (!isOwner && !isAssignee) {
     return errorResponse("You don't have access to this task", 403);
   }
 
-  // Assignee can ONLY update status — nothing else
+  // Assignee can ONLY update status
   if (!isOwner && isAssignee) {
     if (Object.keys(body).some((key) => key !== "status")) {
       return errorResponse("Assignees can only update task status", 403);
@@ -40,7 +39,7 @@ export async function PATCH(
 
   const updateData: any = {};
 
-  // Status — both owner and assignee can change this
+  // Status — both owner and assignee can change
   if (body.status !== undefined) updateData.status = body.status;
 
   // Everything below — owner only
@@ -54,15 +53,24 @@ export async function PATCH(
 
     if (body.assigneeEmail !== undefined) {
       if (!body.assigneeEmail || body.assigneeEmail.trim() === "") {
+        // Clear assignee
         updateData.assigneeId = null;
+        updateData.pendingAssigneeEmail = null;
       } else {
+        const normalizedEmail = body.assigneeEmail.trim().toLowerCase();
         const assignee = await prisma.user.findUnique({
-          where: { email: body.assigneeEmail.trim().toLowerCase() },
+          where: { email: normalizedEmail },
         });
-        if (!assignee) {
-          return errorResponse("User with this email not found", 404);
+
+        if (assignee) {
+          // User exists — link directly
+          updateData.assigneeId = assignee.id;
+          updateData.pendingAssigneeEmail = null;
+        } else {
+          // User hasn't signed up — store as pending
+          updateData.assigneeId = null;
+          updateData.pendingAssigneeEmail = normalizedEmail;
         }
-        updateData.assigneeId = assignee.id;
       }
     }
   }
@@ -80,17 +88,18 @@ export async function PATCH(
     },
   });
 
+  // Notify whoever made the change
   await triggerPusher(`user-${user!.id}`, "task-updated", updatedTask);
 
-// Always notify the owner (if they're not the one who made the change)
-if (updatedTask.ownerId !== user!.id) {
-  await triggerPusher(`user-${updatedTask.ownerId}`, "task-updated", updatedTask);
-}
+  // Notify owner if they didn't make the change
+  if (updatedTask.ownerId !== user!.id) {
+    await triggerPusher(`user-${updatedTask.ownerId}`, "task-updated", updatedTask);
+  }
 
-// Always notify the assignee (if they're not the one who made the change)
-if (updatedTask.assigneeId && updatedTask.assigneeId !== user!.id) {
-  await triggerPusher(`user-${updatedTask.assigneeId}`, "task-updated", updatedTask);
-}
+  // Notify assignee if they didn't make the change
+  if (updatedTask.assigneeId && updatedTask.assigneeId !== user!.id) {
+    await triggerPusher(`user-${updatedTask.assigneeId}`, "task-updated", updatedTask);
+  }
 
   return successResponse(updatedTask);
 }
@@ -125,9 +134,7 @@ export async function DELETE(
     );
   }
 
-  await prisma.task.delete({
-    where: { id },
-  });
+  await prisma.task.delete({ where: { id } });
 
   await triggerPusher(`user-${user!.id}`, "task-deleted", { id });
 

@@ -42,17 +42,22 @@ export async function POST(req: Request) {
   }
 
   let assigneeId: string | undefined;
+  let pendingAssigneeEmail: string | undefined;
 
   if (assigneeEmail && assigneeEmail.trim() !== "") {
+    const normalizedEmail = assigneeEmail.trim().toLowerCase();
+
     const assignee = await prisma.user.findUnique({
-      where: { email: assigneeEmail.trim().toLowerCase() },
+      where: { email: normalizedEmail },
     });
 
-    if (!assignee) {
-      return errorResponse("User with this email not found", 404);
+    if (assignee) {
+      // User exists — link directly
+      assigneeId = assignee.id;
+    } else {
+      // User hasn't signed up yet — store email as pending
+      pendingAssigneeEmail = normalizedEmail;
     }
-
-    assigneeId = assignee.id;
   }
 
   const task = await prisma.task.create({
@@ -63,6 +68,7 @@ export async function POST(req: Request) {
       dueDate: dueDate ? new Date(dueDate) : null,
       ownerId: user!.id,
       assigneeId: assigneeId || null,
+      pendingAssigneeEmail: pendingAssigneeEmail || null,
     },
     include: {
       owner: {
@@ -74,10 +80,10 @@ export async function POST(req: Request) {
     },
   });
 
-  // Notify the owner's channel that a new task was created
+  // Notify owner
   await triggerPusher(`user-${user!.id}`, "task-created", task);
 
-  // If assigned to someone else, notify their channel too
+  // Notify assignee if they exist and are different from owner
   if (assigneeId && assigneeId !== user!.id) {
     await triggerPusher(`user-${assigneeId}`, "task-assigned", task);
   }
