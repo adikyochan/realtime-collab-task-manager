@@ -1,201 +1,208 @@
-# RealTasks 📋
+# RealTasks
 
-> A real-time collaborative task manager — assign tasks, track progress, and watch updates happen live.
+**Real-time collaborative task management — assign, track, and ship together.**
 
-**Live Demo → [realtasks.vercel.app](https://realtime-collab-task-manager.vercel.app)**
+🔗 [realtime-collab-task-manager.vercel.app](https://realtime-collab-task-manager.vercel.app)
 
 ---
 
-## ⚡ Quick Start (under 5 minutes)
+## What is this?
+
+RealTasks lets you create tasks, assign them to teammates by email, and watch updates appear live — no refresh needed. Built as a full-stack assignment in 72 hours.
+
+---
+
+## ⚡ Setup (under 5 minutes)
+
+**Prerequisites:** Node.js 18+, a Google account, Git
 
 ```bash
-# 1. Clone
+# Clone and install
 git clone https://github.com/adikyochan/realtime-collab-task-manager.git
 cd realtime-collab-task-manager
-
-# 2. Install
 npm install
 
-# 3. Environment
+# Environment
 cp .env.example .env.local
-# Fill in your values (see Environment Variables below)
+# Fill in your values — see below
 
-# 4. Database
+# Database
 npx prisma db push
 npx prisma generate
 
-# 5. Run
+# Go
 npm run dev
 ```
 
-Open **http://localhost:3000** — you're in. ✅
+Open `http://localhost:3000` and sign in with Google. Done.
 
 ---
 
 ## 🔑 Environment Variables
 
-| Variable | Where to get it |
-|---|---|
-| `DATABASE_URL` | [supabase.com](https://supabase.com) → Settings → Database → Connection pooler (Transaction mode) |
-| `NEXTAUTH_URL` | `http://localhost:3000` locally, your deployed URL in production |
-| `NEXTAUTH_SECRET` | Run: `openssl rand -base64 32` |
-| `GOOGLE_CLIENT_ID` | [console.cloud.google.com](https://console.cloud.google.com) → APIs & Services → Credentials |
-| `GOOGLE_CLIENT_SECRET` | Same as above |
-| `PUSHER_APP_ID` | [pusher.com](https://pusher.com) → Your App → App Keys |
-| `PUSHER_KEY` | Same as above |
-| `PUSHER_SECRET` | Same as above |
-| `PUSHER_CLUSTER` | Same as above (e.g. `ap2`) |
-| `NEXT_PUBLIC_PUSHER_KEY` | Same value as `PUSHER_KEY` |
-| `NEXT_PUBLIC_PUSHER_CLUSTER` | Same value as `PUSHER_CLUSTER` |
+```env
+# Database — use Supabase Transaction Pooler URL (not direct connection)
+DATABASE_URL=""
+
+# Auth
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET=""                    # run: openssl rand -base64 32
+
+# Google OAuth — console.cloud.google.com
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+
+# Pusher — pusher.com → App Keys
+PUSHER_APP_ID=""
+PUSHER_KEY=""
+PUSHER_SECRET=""
+PUSHER_CLUSTER=""
+NEXT_PUBLIC_PUSHER_KEY=""
+NEXT_PUBLIC_PUSHER_CLUSTER=""
+```
 
 ---
 
-## 🏗 Architecture Overview
+## 🏗 Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        Browser                          │
-│                                                         │
-│   Next.js App (React)                                   │
-│   ┌──────────────┐  ┌──────────────┐                   │
-│   │  /login      │  │  /dashboard  │                   │
-│   │  (public)    │  │  (protected) │                   │
-│   └──────────────┘  └──────┬───────┘                   │
-│                             │                           │
-│                    Pusher Client (WebSocket)             │
-└─────────────────────────────┼───────────────────────────┘
-                              │ HTTP / WS
-┌─────────────────────────────▼───────────────────────────┐
-│                    Next.js Server                        │
-│                                                         │
-│  API Routes                                             │
-│  ┌─────────────────┐  ┌─────────────────────────────┐  │
-│  │ /api/auth/      │  │ /api/tasks (GET, POST)       │  │
-│  │ [...nextauth]   │  │ /api/tasks/[id] (PATCH, DEL) │  │
-│  └────────┬────────┘  │ /api/users/search (GET)      │  │
-│           │           └──────────────┬────────────────┘  │
-│      NextAuth v5                     │                   │
-│      (Google OAuth)                  │ Prisma ORM        │
-└───────────┼──────────────────────────┼───────────────────┘
-            │                          │
-     ┌──────▼──────┐          ┌────────▼────────┐
-     │   Supabase  │          │     Pusher      │
-     │ PostgreSQL  │          │  (WebSockets)   │
-     └─────────────┘          └─────────────────┘
+Browser
+│
+├── /login          Public landing page
+└── /dashboard      Protected — requires Google sign-in
+    │
+    ├── React (Next.js App Router)
+    └── Pusher Client ←──────────────────────┐
+                                             │ WebSocket push
+Next.js Server (API Routes)                  │
+│                                            │
+├── /api/auth/[...nextauth]   Google OAuth   │
+├── /api/tasks                CRUD           │
+├── /api/tasks/[id]           PATCH/DELETE   │
+└── /api/users/search         Assignee lookup│
+    │                                        │
+    Prisma ORM                          Pusher Server
+    │                                        │
+    PostgreSQL (Supabase)            triggers on task events
 ```
 
-### Request Lifecycle
-
+**Creating a task:**
 ```
-User creates task → POST /api/tasks
+User submits form
+  → POST /api/tasks
   → Auth check (NextAuth session)
-  → Resolve assignee email → Prisma DB write
-  → Trigger Pusher event on user-{id} channel
-  → Assignee browser receives event instantly
-  → UI updates without page refresh
+  → Resolve assignee email in DB
+    → Found: link directly
+    → Not found: store as pendingAssigneeEmail
+  → Prisma writes to PostgreSQL
+  → Pusher fires → assignee UI updates instantly
+```
+
+**New user signs in for first time:**
+```
+Google OAuth completes
+  → NextAuth signIn callback fires
+  → Find all tasks where pendingAssigneeEmail = user's email
+  → Link tasks to new user ID, clear pending email
+  → Tasks appear in their dashboard automatically ✅
 ```
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| **Framework** | Next.js 14 (App Router) | Full-stack in one repo, server components, easy Vercel deploy |
-| **Styling** | Tailwind CSS + Shadcn/UI | Utility-first, accessible components, fast iteration |
-| **Auth** | NextAuth.js v5 | Best-in-class for Next.js, handles OAuth flow, session persistence |
-| **Database** | PostgreSQL (Supabase) | Relational data fits task/user relationships perfectly |
-| **ORM** | Prisma 7 | Type-safe queries, auto-generated TypeScript types, easy migrations |
-| **Real-time** | Pusher Channels | Managed WebSockets, zero infrastructure overhead |
-| **Deployment** | Vercel | Zero-config Next.js, automatic CI/CD from GitHub |
+**Frontend**
+- Next.js 14 (App Router) — full-stack in one repo, server components, file-based routing
+- Tailwind CSS — utility-first, no CSS files needed
+- Shadcn/UI — accessible, composable component primitives
+- Framer Motion — smooth task animations and transitions
+
+**Backend**
+- Next.js API Routes — no separate server needed
+- NextAuth.js v5 — Google OAuth, database-backed sessions
+- Prisma 7 — type-safe ORM, auto-generated TypeScript types
+- Pusher Channels — managed WebSockets, zero infrastructure overhead
+
+**Infrastructure**
+- PostgreSQL via Supabase — relational DB, built-in connection pooling
+- Vercel — zero-config Next.js hosting, auto CI/CD from GitHub pushes
 
 ---
 
 ## ⚖️ Assumptions & Trade-offs
 
-### Assumptions
-- Users authenticate exclusively via Google — no email/password auth needed
-- Tasks are either personal or assigned to one person — no multi-assignee support required
-- Real-time is a bonus feature, not a hard requirement — the app works without Pusher
-- Free tier infrastructure is acceptable for this scale
+**Google-only auth**
+Assumed one sign-in provider is sufficient. Simplifies auth significantly — no password resets or email verification needed. Trade-off: users without Google accounts can't join.
 
-### Trade-offs
+**Pusher over self-hosted WebSockets**
+Eliminates infrastructure complexity. Trade-off: free tier caps at 200 concurrent connections. Fine for this scale, but at production load, self-hosted Socket.io would be more cost-effective.
 
-**Pusher vs self-hosted WebSockets**
-Pusher adds a third-party dependency and has usage limits on the free tier, but eliminates the complexity of managing WebSocket servers. For a production app at scale, self-hosted Socket.io or Ably would be more cost-effective.
-
-**Supabase vs PlanetScale/Neon**
-Supabase's direct connection URL is blocked by some ISPs in India — this caused significant friction during development. In hindsight, Neon would have been smoother for development since it's accessible without a VPN.
+**Supabase for PostgreSQL**
+Managed Postgres with connection pooling and a great dashboard. Trade-off: the direct connection URL is blocked by some Indian ISPs — requires Cloudflare WARP locally or the Transaction Pooler URL in production.
 
 **NextAuth v5 (beta)**
-NextAuth v5 changed its API significantly from v4. Using a beta version introduced breaking changes and deployment issues. The trade-off is access to newer features vs stability — v4 would have been safer.
+Cleaner API and better App Router support than v4. Trade-off: still in beta, which caused several breaking changes and painful deployment debugging. v4 would have been safer.
 
-**No optimistic UI rollback on error**
-Task creation uses Pusher events to update the UI rather than directly updating state. If the Pusher event fails, the UI won't update. A more robust approach would be local state update + revert on error.
+**Pending assignee fallback**
+If a task is assigned to an email not yet in the system, it's stored as `pendingAssigneeEmail` and linked automatically on their first sign-in. Trade-off: the assignee has no idea they have a task until they open the app — a transactional email would fix this.
 
-**Pending assignee email**
-If you assign a task to someone who hasn't signed up, their email is stored as `pendingAssigneeEmail`. When they sign in, tasks are linked automatically. The trade-off is no email notification is sent — users must be told out-of-band to sign up.
-
----
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-
-```bash
-# 1. Push to GitHub
-git push origin main
-
-# 2. Import at vercel.com → New Project → select repo
-
-# 3. Add all environment variables in Vercel dashboard
-#    IMPORTANT: Use Supabase Transaction Pooler URL for DATABASE_URL
-#    postgresql://postgres.xxx:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
-
-# 4. Add to package.json scripts:
-"postinstall": "prisma generate"
-
-# 5. Update Google Console with your Vercel URL:
-#    Authorized origins: https://your-app.vercel.app
-#    Redirect URI: https://your-app.vercel.app/api/auth/callback/google
-```
-
-> **India-specific note:** Supabase direct connections are blocked by major ISPs. Always use the Transaction Pooler URL in production, and Cloudflare WARP locally for `prisma db push`.
+**Optimistic UI**
+Status toggles update the UI immediately before the API confirms. Trade-off: a failed request causes a visible revert, which can feel jarring. Acceptable at this scale.
 
 ---
 
 ## ⚠️ Known Limitations
 
-| Limitation | Impact | Workaround |
-|---|---|---|
-| Pusher free tier: 200 concurrent connections | App won't scale beyond ~200 active users | Upgrade Pusher plan or self-host Socket.io |
-| No email notifications | Assignees don't know they have a task unless they open the app | Add SendGrid/Resend for assignment emails |
-| No task comments | No discussion thread on tasks | Out of scope for v1 |
-| No file attachments | Can't attach documents to tasks | Out of scope for v1 |
-| Single assignee per task | Can't assign to multiple people | DB schema change needed |
-| No team/workspace concept | All users share a flat namespace | No team isolation |
-| Supabase free tier DB pauses | DB pauses after 7 days inactivity on free plan | Upgrade or use Neon which doesn't pause |
+- Pusher free tier caps at 200 concurrent connections
+- No email notifications when tasks are assigned
+- Only one assignee per task — no multi-person support
+- No team or workspace concept — all users share a flat namespace
+- Supabase free tier pauses the DB after 7 days of inactivity
+- No file attachments or task comments
+- No recurring tasks or due date reminders
 
 ---
 
-## 🔮 What I'd Do Next
+## 🔮 What's Next
 
 **Features**
-- [ ] Email notifications on task assignment (SendGrid/Resend)
-- [ ] Task comments and activity log
-- [ ] File attachments (Supabase Storage)
-- [ ] Sub-tasks / checklist items
-- [ ] Multiple assignees per task
-- [ ] Due date reminders / push notifications
-- [ ] Recurring tasks
+- Email notifications on assignment via Resend
+- Task comments and activity feed
+- File attachments via Supabase Storage
+- Multiple assignees per task
+- Teams and workspaces with role-based access
+- Due date reminders and push notifications
 
 **Technical**
-- [ ] Migrate from Pusher to self-hosted Socket.io for cost efficiency
-- [ ] Add end-to-end tests with Playwright
-- [ ] Rate limiting on API routes
-- [ ] Proper error monitoring (Sentry)
-- [ ] Redis for session caching at scale
-- [ ] Teams / workspaces concept with role-based access
+- Migrate Pusher to self-hosted Socket.io for cost efficiency at scale
+- End-to-end tests with Playwright
+- Rate limiting on API routes
+- Error monitoring with Sentry
+- Redis for session caching
+
+---
+
+## 🚀 Deployment
+
+```bash
+# 1. Push to GitHub
+git push origin main
+
+# 2. Import repo at vercel.com → New Project
+
+# 3. Add all env variables in Vercel dashboard
+#    DATABASE_URL must be the Supabase Transaction Pooler URL:
+#    postgresql://postgres.xxx:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+
+# 4. Add postinstall script to package.json
+"postinstall": "prisma generate"
+
+# 5. Update Google Cloud Console with your production URL
+#    Authorized origin:  https://your-app.vercel.app
+#    Redirect URI:       https://your-app.vercel.app/api/auth/callback/google
+
+# 6. Vercel auto-deploys on every push to main from here on
+```
 
 ---
 
@@ -205,36 +212,26 @@ git push origin main
 src/
 ├── app/
 │   ├── api/
-│   │   ├── auth/[...nextauth]/   # NextAuth handler
-│   │   ├── tasks/                # GET, POST tasks
-│   │   │   └── [id]/             # PATCH, DELETE task
-│   │   └── users/search/         # User search for assignment
-│   ├── dashboard/                # Protected dashboard page
-│   ├── login/                    # Homepage + login
-│   └── layout.tsx
+│   │   ├── auth/[...nextauth]/    NextAuth handler
+│   │   ├── tasks/                 GET, POST
+│   │   │   └── [id]/              PATCH, DELETE
+│   │   └── users/search/          Assignee search
+│   ├── dashboard/                 Protected dashboard
+│   └── login/                     Public landing page
 ├── components/
-│   ├── DashboardClient.tsx       # Main dashboard (real-time)
-│   ├── Sidebar.tsx               # Nav + mini calendar
-│   ├── TaskCard.tsx              # Individual task row
-│   ├── TaskForm.tsx              # Create task form
-│   ├── EditTaskModal.tsx         # Edit task modal
-│   ├── TaskSkeleton.tsx          # Loading placeholder
-│   └── UserSearchInput.tsx       # Assignee search dropdown
-├── lib/
-│   ├── prisma.ts                 # Prisma client singleton
-│   ├── auth.ts                   # NextAuth config
-│   ├── pusher-server.ts          # Server-side Pusher trigger
-│   └── pusher-client.ts          # Client-side Pusher listener
-└── types/
-    └── task.ts                   # Shared TypeScript types
+│   ├── DashboardClient.tsx        Main UI + real-time logic
+│   ├── Sidebar.tsx                Navigation + mini calendar
+│   ├── TaskCard.tsx               Individual task row
+│   ├── TaskForm.tsx               Create task inline form
+│   ├── EditTaskModal.tsx          Edit task modal
+│   └── UserSearchInput.tsx        Assignee search dropdown
+└── lib/
+    ├── prisma.ts                  DB client singleton
+    ├── auth.ts                    NextAuth config + callbacks
+    ├── pusher-server.ts           Server-side event triggers
+    └── pusher-client.ts           Client-side event listener
 ```
 
 ---
 
-## 👤 Author
-
-Built by **Adidev J J** · [adidevjj@gmail.com](mailto:adidevjj@gmail.com) · [GitHub](https://github.com/adikyochan)
-
----
-
-<p align="center">Made with ☕ and too many Prisma version conflicts</p>
+Made with ❤️ by [@adikyochan](https://github.com/adikyochan) · *and way too much coffee and Prisma version conflicts*
