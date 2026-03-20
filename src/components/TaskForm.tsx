@@ -112,7 +112,7 @@ export function TaskForm({ onCreate }: TaskFormProps) {
         <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
           <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
           <input
-            type="date"
+            type="datetime-local"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             className="text-xs text-gray-500 outline-none bg-transparent"

@@ -72,6 +72,15 @@ export function TaskCard({
     setShowEditModal(true);
   };
 
+  const formatDueDate = (dueDate: string) => {
+    const date = new Date(dueDate);
+    const hasTime =
+      date.getHours() !== 0 || date.getMinutes() !== 0;
+    return hasTime
+      ? format(date, "d MMM, h:mm a")
+      : format(date, "d MMM");
+  };
+
   return (
     <>
       <motion.div
@@ -124,7 +133,7 @@ export function TaskCard({
               {task.dueDate && (
                 <span className="flex items-center gap-1 text-xs text-gray-400">
                   <Calendar className="w-3 h-3" />
-                  {format(new Date(task.dueDate), "d MMM")}
+                  {formatDueDate(task.dueDate)}
                 </span>
               )}
 

@@ -26,7 +26,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
   const [priority, setPriority] = useState(task.priority);
   const [dueDate, setDueDate] = useState(
     task.dueDate
-      ? new Date(task.dueDate).toISOString().split("T")[0]
+      ? new Date(task.dueDate).toISOString().slice(0, 16)
       : ""
   );
   const [assigneeEmail, setAssigneeEmail] = useState(
@@ -62,7 +62,6 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
 
   return (
     <AnimatePresence>
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -70,7 +69,6 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
         className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
-        {/* Modal */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -119,7 +117,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
               />
             </div>
 
-            {/* Priority + Due date row */}
+            {/* Priority + Due date */}
             <div className="grid grid-cols-2 gap-3">
               {/* Priority */}
               <div className="space-y-1">
@@ -142,15 +140,15 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
                 </div>
               </div>
 
-              {/* Due date */}
+              {/* Due date + time */}
               <div className="space-y-1">
                 <label className="text-xs text-gray-500 font-medium">
-                  Due date
+                  Due date & time
                 </label>
                 <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
                   <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="text-xs text-gray-600 outline-none bg-transparent flex-1"
@@ -159,7 +157,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
               </div>
             </div>
 
-            {/* Assignee with search */}
+            {/* Assignee */}
             <div className="space-y-1">
               <label className="text-xs text-gray-500 font-medium">
                 Assigned to
