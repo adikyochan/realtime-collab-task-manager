@@ -16,11 +16,12 @@ RealTasks is a real-time collaborative task manager. You create tasks, assign th
 ## 🚀 How to Use It
 
 1. **Sign in** with your Google account — no passwords, no forms, no nonsense
-2. **Create a task** — click "Add task", type a title, set priority and due date
-3. **Assign it** — type a teammate's email in the assign field. If they haven't signed up yet, the task waits for them and links automatically when they join
+2. **Create a task** — click "Add task", give it a title, set priority, pick a date and time separately
+3. **Assign it** — search for a teammate by name or type their email directly. If they haven't signed up yet, the task is stored and automatically linked to them when they join
 4. **Watch it happen** — open the app on two devices. Create or complete a task. See it update on the other screen in real time
-5. **Manage your work** — filter by date using the calendar, sort by name/priority/date, search anything, edit or delete tasks you own
-6. **Sign out** — bottom of the sidebar. Your data stays safe in the cloud ☁️
+5. **Manage your work** — filter by date using the calendar (dots appear under dates with pending tasks), sort by name/priority/date, search anything, edit or delete tasks you own
+6. **Mark tasks done** — both the owner and the assignee can mark tasks complete and bring them back
+7. **Sign out** — bottom of the sidebar. Your data stays safe ☁️
 
 ---
 
@@ -37,11 +38,12 @@ RealTasks is a real-time collaborative task manager. You create tasks, assign th
 | Layer | What we used |
 |---|---|
 | Framework | Next.js 14 (App Router) |
-| Styling | Tailwind CSS + Shadcn/UI |
+| Styling | Tailwind CSS + Shadcn/UI + Framer Motion |
 | Auth | NextAuth.js v5 (Google OAuth) |
 | Database | PostgreSQL via Supabase |
 | ORM | Prisma 7 |
 | Real-time | Pusher Channels (WebSockets) |
+| Font | Geist Mono |
 | Deployment | Vercel |
 
 ---
@@ -100,24 +102,26 @@ git push origin main
 
 Vercel auto-deploys on every push to `main` from here on. 🎉
 
+> **India-specific note:** Supabase direct connections are blocked by some ISPs. Use the Transaction Pooler URL in production and Cloudflare WARP locally for `prisma db push`.
+
 ---
 
 ## 🔑 Environment Variables
 
 ```env
-# ─── Database ───────────────────────────────────────────
+# ─── Database ────────────────────────────────────────────
 # Use Transaction Pooler URL from Supabase (not direct connection)
 DATABASE_URL=""
 
-# ─── Auth ───────────────────────────────────────────────
+# ─── Auth ────────────────────────────────────────────────
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET=""          # openssl rand -base64 32
+NEXTAUTH_SECRET=""          # run: openssl rand -base64 32
 
-# ─── Google OAuth ───────────────────────────────────────
+# ─── Google OAuth ────────────────────────────────────────
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 
-# ─── Pusher ─────────────────────────────────────────────
+# ─── Pusher ──────────────────────────────────────────────
 PUSHER_APP_ID=""
 PUSHER_KEY=""
 PUSHER_SECRET=""
@@ -166,6 +170,15 @@ User types email → POST /api/tasks
      → user signs up later → signIn callback links all pending tasks automatically
 ```
 
+**Real-time event flow:**
+```
+Any task change (create / update / delete / complete)
+  → API route triggers Pusher event on user-{id} channel
+  → Owner gets notified
+  → Assignee gets notified
+  → Both UIs update without any refresh
+```
+
 ---
 
 ## ⚖️ Trade-offs
@@ -174,24 +187,29 @@ User types email → POST /api/tasks
 
 **Pusher over self-hosted WebSockets** — Zero infrastructure to manage. Trade-off: free tier caps at 200 concurrent connections. Fine for now, Socket.io would be better at scale.
 
-**NextAuth v5 (beta)** — Much cleaner API than v4. Trade-off: still in beta. Hit multiple breaking changes during deployment. Would use v4 for a production app today.
+**NextAuth v5 (beta)** — Much cleaner API than v4, better App Router support. Trade-off: still in beta, hit multiple breaking changes during deployment. v4 would have been safer for a production app today.
 
-**Supabase** — Great dashboard, built-in pooling, generous free tier. Trade-off: direct connection blocked by some Indian ISPs — Transaction Pooler URL required in production.
+**Supabase** — Great dashboard, built-in pooling, generous free tier. Trade-off: direct connection blocked by some Indian ISPs — Transaction Pooler URL required in production, Cloudflare WARP needed locally.
 
-**No email notifications** — Pending task assignment works, but the assignee doesn't know until they open the app. Resend integration would fix this cleanly.
+**Prisma 7** — Latest version, modern config API. Trade-off: significant breaking changes from v6, new `prisma.config.ts` setup caused friction during deployment. v6 would have been more stable.
+
+**No email notifications** — Pending task assignment works silently. The assignee won't know until they open the app. Resend integration would fix this cleanly.
+
+**Optimistic UI** — Status toggles update instantly before the API confirms. Trade-off: a failed request causes a visible revert. Acceptable at this scale.
 
 ---
 
 ## 🔮 Features I'd Add Next
 
-- 📧 Email notifications on task assignment (Resend)
+- 📧 Email notifications on assignment via Resend
 - 💬 Task comments and activity feed
-- 📎 File attachments (Supabase Storage)
+- 📎 File attachments via Supabase Storage
 - 👥 Teams and workspaces with role-based access
 - 🔁 Recurring tasks and due date reminders
 - 📱 Native mobile app (React Native)
 - 🔔 Push notifications
-- 📊 Analytics dashboard — tasks completed, overdue, by member
+- 📊 Analytics — tasks completed, overdue, per member
+- 🌙 Full dark mode
 
 ---
 
@@ -199,20 +217,33 @@ User types email → POST /api/tasks
 
 - Pusher free tier: 200 concurrent connections max
 - Supabase free tier pauses the DB after 7 days of inactivity
-- No email sent when a task is assigned to a pending user
+- No email sent when a task is assigned to a pending user — they won't know until they open the app
 - One assignee per task only — no multi-person assignment
-- No team isolation — all users are in a shared namespace
-- No file attachments or task comments in v1
+- No team isolation — all users share a flat namespace
+- No file attachments or task comments
+- Google-only login — no alternative sign-in method
+- Dark mode styles exist in code but no toggle is exposed in the UI
+
+---
+
+## 🤖 AI Assistance
+
+I used Claude (Anthropic) throughout this project in a few specific ways:
+
+- **Workflow planning** — helped me break the 72-hour build into structured phases (setup → DB → auth → API → real-time → UI → deployment) so I wasn't just winging it
+- **Boilerplate generation** — scaffolding repetitive files like API route handlers, Prisma adapter config, and NextAuth callbacks
+- **README** — this document was written with AI assistance and then edited for accuracy
+
 
 ---
 
 ```
 Made with ❤️ by @adikyochan
 
-Powered by way too much coffee and too many Prisma version
+Powered by way too much coffee and one too many Prisma version
 conflicts.
 ```
 
 ---
 
-*If this README is longer than the time it took you to set up the app, I've done something right.*
+*If this README is longer than the time it took you to set up the app, something went right.*
