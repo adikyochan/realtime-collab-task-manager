@@ -28,6 +28,7 @@ export function TaskForm({ onCreate }: TaskFormProps) {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("");
   const [assigneeEmail, setAssigneeEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -37,12 +38,21 @@ export function TaskForm({ onCreate }: TaskFormProps) {
     if (!title.trim()) return;
     setIsLoading(true);
     setError("");
+
+    // Combine date and time into a single ISO string
+    let combinedDueDate: string | undefined;
+    if (dueDate) {
+      combinedDueDate = dueTime
+        ? `${dueDate}T${dueTime}`
+        : dueDate;
+    }
+
     try {
       const result = await onCreate({
         title,
         description: description || undefined,
         priority,
-        dueDate: dueDate || undefined,
+        dueDate: combinedDueDate,
         assigneeEmail: assigneeEmail || undefined,
       });
       if (result && "error" in result) {
@@ -53,6 +63,7 @@ export function TaskForm({ onCreate }: TaskFormProps) {
       setDescription("");
       setPriority("MEDIUM");
       setDueDate("");
+      setDueTime("");
       setAssigneeEmail("");
       setIsOpen(false);
     } catch {
@@ -68,6 +79,7 @@ export function TaskForm({ onCreate }: TaskFormProps) {
     setDescription("");
     setPriority("MEDIUM");
     setDueDate("");
+    setDueTime("");
     setAssigneeEmail("");
     setError("");
   };
@@ -106,15 +118,38 @@ export function TaskForm({ onCreate }: TaskFormProps) {
         className="border-0 px-0 text-sm placeholder:text-gray-300 focus-visible:ring-0 text-gray-500"
       />
 
-      {/* Due date + Priority row */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Due date */}
+      {/* Options row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Date */}
         <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
           <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
           <input
-            type="datetime-local"
+            type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
+            className="text-xs text-gray-500 outline-none bg-transparent"
+          />
+        </div>
+
+        {/* Time */}
+        <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
+          <svg
+            className="w-3.5 h-3.5 text-gray-400 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <input
+            type="time"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
             className="text-xs text-gray-500 outline-none bg-transparent"
           />
         </div>
@@ -136,7 +171,7 @@ export function TaskForm({ onCreate }: TaskFormProps) {
         </div>
       </div>
 
-      {/* Assign to — full width with user search */}
+      {/* Assign to */}
       <UserSearchInput
         value={assigneeEmail}
         onChange={setAssigneeEmail}

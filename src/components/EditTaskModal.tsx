@@ -24,11 +24,24 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
   const [priority, setPriority] = useState(task.priority);
-  const [dueDate, setDueDate] = useState(
-    task.dueDate
-      ? new Date(task.dueDate).toISOString().slice(0, 16)
-      : ""
-  );
+
+  // Split existing dueDate into date and time parts
+  const existingDate = task.dueDate
+    ? new Date(task.dueDate).toISOString().split("T")[0]
+    : "";
+  const existingTime = task.dueDate
+    ? (() => {
+        const d = new Date(task.dueDate);
+        const h = d.getHours();
+        const m = d.getMinutes();
+        return h === 0 && m === 0
+          ? ""
+          : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      })()
+    : "";
+
+  const [dueDate, setDueDate] = useState(existingDate);
+  const [dueTime, setDueTime] = useState(existingTime);
   const [assigneeEmail, setAssigneeEmail] = useState(
     task.assignee?.email || ""
   );
@@ -42,11 +55,17 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
     setIsLoading(true);
     setError("");
 
+    // Combine date and time
+    let combinedDueDate: string | null = null;
+    if (dueDate) {
+      combinedDueDate = dueTime ? `${dueDate}T${dueTime}` : dueDate;
+    }
+
     const result = await onSave(task.id, {
       title: title.trim(),
       description: description.trim() || null,
       priority,
-      dueDate: dueDate || null,
+      dueDate: combinedDueDate,
       assigneeEmail: assigneeEmail.trim() || null,
     });
 
@@ -117,40 +136,63 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
               />
             </div>
 
-            {/* Priority + Due date */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Priority */}
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500 font-medium">
-                  Priority
-                </label>
-                <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
-                  <Flag className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as any)}
-                    className="text-xs text-gray-600 outline-none bg-transparent cursor-pointer flex-1"
-                  >
-                    {priorities.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            {/* Priority */}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500 font-medium">
+                Priority
+              </label>
+              <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
+                <Flag className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="text-xs text-gray-600 outline-none bg-transparent cursor-pointer flex-1"
+                >
+                  {priorities.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+            </div>
 
-              {/* Due date + time */}
-              <div className="space-y-1">
-                <label className="text-xs text-gray-500 font-medium">
-                  Due date & time
-                </label>
+            {/* Date + Time — two separate boxes */}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500 font-medium">
+                Due date & time
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Date */}
                 <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
                   <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                   <input
-                    type="datetime-local"
+                    type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
+                    className="text-xs text-gray-600 outline-none bg-transparent flex-1"
+                  />
+                </div>
+
+                {/* Time */}
+                <div className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-2.5 py-2">
+                  <svg
+                    className="w-3.5 h-3.5 text-gray-400 flex-shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <input
+                    type="time"
+                    value={dueTime}
+                    onChange={(e) => setDueTime(e.target.value)}
                     className="text-xs text-gray-600 outline-none bg-transparent flex-1"
                   />
                 </div>
