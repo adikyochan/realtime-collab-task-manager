@@ -74,8 +74,7 @@ export function TaskCard({
 
   const formatDueDate = (dueDate: string) => {
     const date = new Date(dueDate);
-    const hasTime =
-      date.getHours() !== 0 || date.getMinutes() !== 0;
+    const hasTime = date.getHours() !== 0 || date.getMinutes() !== 0;
     return hasTime
       ? format(date, "d MMM, h:mm a")
       : format(date, "d MMM");
@@ -175,41 +174,47 @@ export function TaskCard({
           </div>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="relative flex items-center gap-1 flex-shrink-0">
+            {/* Priority badge — slides left on hover to make room */}
             <Badge
               className={cn(
-                "text-xs font-normal px-2 py-0.5 border-0",
-                priorityConfig[task.priority].className
+                "text-xs font-normal px-2 py-0.5 border-0 transition-all duration-200",
+                priorityConfig[task.priority].className,
+                isOwner && "group-hover:mr-14"
               )}
             >
               {priorityConfig[task.priority].label}
             </Badge>
 
-            {/* Edit — only owner */}
+            {/* Edit + Delete — slide in from right on hover */}
             {isOwner && (
-              <button
-                onClick={handleEditClick}
-                className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-blue-400 transition-all rounded"
-                title="Edit task"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
+              <div className="absolute right-6 flex items-center gap-1 opacity-0 group-hover:opacity-100 translate-x-3 group-hover:translate-x-0 transition-all duration-200">
+                <button
+                  onClick={handleEditClick}
+                  className="p-1 text-gray-300 hover:text-blue-400 transition-colors rounded"
+                  title="Edit task"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="p-1 text-gray-300 hover:text-red-400 transition-colors rounded"
+                  title="Delete task"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
 
-            {/* Delete — only owner */}
-            {isOwner && (
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-all rounded"
-                title="Delete task"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {/* Expand toggle */}
-            <button className="p-1 text-gray-300 hover:text-gray-500 transition-colors">
+            {/* Expand toggle — always visible */}
+            <button
+              className="p-1 text-gray-300 hover:text-gray-500 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(!expanded);
+              }}
+            >
               {expanded ? (
                 <ChevronUp className="w-4 h-4" />
               ) : (
